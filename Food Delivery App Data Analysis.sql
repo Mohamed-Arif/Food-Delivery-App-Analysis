@@ -1,55 +1,73 @@
-Task1: For a high-level overview of the hotels, provide us the top 5 most voted hotels in the delivery category.
-SELECT name,votes,rating FROM `zomato` 
-WHERE type in ('Delivery')
+-- Food Delivery App Data Analysis: SQL tasks
+-- Runs on MySQL against the `zomato` table loaded from zomatocleaned.csv.
+-- Notes on the data:
+--   * The same restaurant appears many times (once per listing category and per area it
+--     delivers to), so "top N" queries group by name to list each restaurant once.
+--   * approx_cost is text such as '1,200', so it is converted to a number before sorting.
+--   * A rating of 0 means "not yet rated" (NEW or '-' in the raw data), so averages leave it out.
+
+-- Task 1: For a high-level overview, the top 5 most voted restaurants in the Delivery category.
+SELECT name, MAX(votes) AS votes, MAX(rating) AS rating
+FROM zomato
+WHERE type = 'Delivery'
+GROUP BY name
 ORDER BY votes DESC
 LIMIT 5;
 
-Task2:The rating of a hotel is a key identifier in determining a restaurant’s performance. Hence for a particular location called Banashankari find out the top 5 highly rated hotels in the delivery category.
-SELECT 
-    name,rating,location,type
-FROM `zomato` 
-WHERE type in ('Delivery') and location in ('Banashankari')
-ORDER BY rating DESC
-limit 5;
-
-
-Task3:compare the ratings of the cheapest and most expensive hotels in Indiranagar.
-select
-        (select rating
-        FROM `zomato`
-        where location in ('Indiranagar')
-        order by approx_cost DESC
-        limit 1) as rating1,
-            (select rating
-            FROM `zomato`
-            where location in ('Indiranagar')
-            order by approx_cost ASC
-            limit 1) as rating2
-from `zomato`
-where location in ('Indiranagar')
-limit 1
-
-Task4:Online ordering of food has exponentially increased over time. Compare the total votes of restaurants that provide online ordering services and those who don’t provide online ordering service.
-SELECT SUM(votes) as total_votes, online_order
+-- Task 2: The top 5 highest-rated Delivery restaurants in Banashankari.
+SELECT name, MAX(rating) AS rating, MAX(votes) AS votes
 FROM zomato
-GROUP BY online_order
+WHERE type = 'Delivery' AND location = 'Banashankari'
+GROUP BY name
+ORDER BY rating DESC, votes DESC
+LIMIT 5;
 
-Task5:Number of votes defines how much the customers are involved with the service provided by the restaurants For each Restaurant type, find out the number of restaurants, total votes, and average rating. Display the data with the highest votes on the top( if the first row of output is NA display the remaining rows).
-SELECT type, COUNT(name) as "count", SUM(votes) as "sum", AVG(rating) as "avg"
-FROM `zomato`
-where type <> 'NA'
-GROUP by type
-ORDER BY sum DESC
+-- Task 3: Compare the ratings of the most expensive and the cheapest restaurants in Indiranagar.
+SELECT
+    (SELECT name FROM zomato
+     WHERE location = 'Indiranagar'
+     ORDER BY CAST(REPLACE(approx_cost, ',', '') AS UNSIGNED) DESC
+     LIMIT 1) AS most_expensive,
+    (SELECT rating FROM zomato
+     WHERE location = 'Indiranagar'
+     ORDER BY CAST(REPLACE(approx_cost, ',', '') AS UNSIGNED) DESC
+     LIMIT 1) AS most_expensive_rating,
+    (SELECT name FROM zomato
+     WHERE location = 'Indiranagar'
+     ORDER BY CAST(REPLACE(approx_cost, ',', '') AS UNSIGNED) ASC
+     LIMIT 1) AS cheapest,
+    (SELECT rating FROM zomato
+     WHERE location = 'Indiranagar'
+     ORDER BY CAST(REPLACE(approx_cost, ',', '') AS UNSIGNED) ASC
+     LIMIT 1) AS cheapest_rating;
 
-Task6:What is the most liked dish of the most-voted restaurant on Zomato(as the restaurant has a tie-up with Zomato, the restaurant compulsorily provides online ordering and delivery facilities.
+-- Task 4: Total votes for restaurants with and without online ordering.
+SELECT online_order, SUM(votes) AS total_votes
+FROM zomato
+GROUP BY online_order;
+
+-- Task 5: For each restaurant type, the number of restaurants, total votes and average rating,
+-- most-voted first, leaving out rows with no type.
+SELECT type,
+       COUNT(name)                 AS restaurants,
+       SUM(votes)                  AS total_votes,
+       ROUND(AVG(NULLIF(rating, 0)), 2) AS avg_rating
+FROM zomato
+WHERE type IS NOT NULL AND type <> 'NA'
+GROUP BY type
+ORDER BY total_votes DESC;
+
+-- Task 6: The most liked dishes of the most-voted restaurant.
 SELECT name, dish_liked, rating, votes
 FROM zomato
 ORDER BY votes DESC
 LIMIT 1;
 
-Task7:To increase the maximum profit, Zomato is in need to expand its business. For doing so Zomato wants the list of the top 15 restaurants which have min 150 votes, have a rating greater than 3, and is currently not providing online ordering. Display the restaurants with highest votes on the top.
-select name, rating, votes, online_order 
-FROM `zomato`
-WHERE votes >= 150 and rating > 3 and online_order = "no"
-ORDER BY 3 DESC
-LIMIT 15
+-- Task 7: Expansion targets: the top 15 restaurants with at least 150 votes, a rating above 3,
+-- and no online ordering, most-voted first.
+SELECT name, MAX(rating) AS rating, MAX(votes) AS votes
+FROM zomato
+WHERE votes >= 150 AND rating > 3 AND online_order = 'No'
+GROUP BY name
+ORDER BY votes DESC
+LIMIT 15;
